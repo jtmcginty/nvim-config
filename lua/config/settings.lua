@@ -19,8 +19,8 @@ vim.opt.clipboard = 'unnamedplus'
 
 -- Open Kiro in narrow vertical split on far right
 vim.keymap.set('n', '<C-\\>', function()
-  vim.cmd('botright vsplit')  -- Open on far right
-  vim.cmd('vertical resize 50')  -- 50 columns wide
+  vim.cmd('botright vsplit')    -- Open on far right
+  vim.cmd('vertical resize 42') -- 45 columns wide
   vim.cmd('terminal kiro-cli chat')
   vim.cmd('startinsert')
   -- Make window fixed width
