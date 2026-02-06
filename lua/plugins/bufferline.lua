@@ -18,6 +18,11 @@ return {
         right_mouse_command = 'bdelete! %d',
         left_mouse_command = 'buffer %d',
         middle_mouse_command = nil,
+        -- Filter out terminal buffers (like Kiro)
+        custom_filter = function(buf_number)
+          local buftype = vim.bo[buf_number].buftype
+          return buftype ~= 'terminal'
+        end,
         indicator = {
           style = 'underline',
         },
