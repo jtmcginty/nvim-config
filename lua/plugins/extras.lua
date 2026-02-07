@@ -6,6 +6,14 @@ return {
   -- Auto-detect indentation
   { 'tpope/vim-sleuth' },
 
+  -- Keep window proportions when opening/closing buffers
+  {
+    'kwkarlwang/bufresize.nvim',
+    config = function()
+      require('bufresize').setup()
+    end,
+  },
+
   -- Surround text objects (ys, cs, ds)
   {
     'kylechui/nvim-surround',
