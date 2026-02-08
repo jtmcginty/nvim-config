@@ -91,6 +91,7 @@ Leader key: `Space`
 - `<leader>h` - Toggle harpoon menu
 - `<Esc>` - Clear search highlights
 - `Ctrl+\` - Toggle Kiro AI chat
+- `Alt+\` - Toggle Claude AI chat
 - `Tab` - Accept Copilot suggestion (in insert mode)
 - `s` + char - Flash jump (labeled navigation)
 - `<leader>u` - Toggle undotree
