@@ -18,6 +18,7 @@ A modern, well-documented Neovim setup focused on intuitive defaults and discove
 - **📏 Sleuth** - Auto-detect indentation
 - **❓ Which-key** - Discover keybindings as you type
 - **🤖 Kiro** - AI assistant integrated via ACP
+- **🤖 Copilot** - GitHub Copilot inline code suggestions
 - **🎨 Catppuccin** - Beautiful, easy-on-the-eyes theme
 - **🔧 Trouble** - Enhanced diagnostics and quickfix UI
 - **🐙 Lazygit** - Full-featured git UI via Toggleterm
@@ -90,6 +91,7 @@ Leader key: `Space`
 - `<leader>h` - Toggle harpoon menu
 - `<Esc>` - Clear search highlights
 - `Ctrl+\` - Toggle Kiro AI chat
+- `Tab` - Accept Copilot suggestion (in insert mode)
 - `s` + char - Flash jump (labeled navigation)
 - `<leader>u` - Toggle undotree
 - `<leader>D` - Toggle database UI
