@@ -4,16 +4,16 @@ local recent_files = {}
 local file_mtimes = {}
 local timer = nil
 
--- Check if buffer is Kiro terminal
-local function is_kiro_terminal(bufnr)
+-- Check if buffer is AI terminal (Kiro or Claude)
+local function is_ai_terminal(bufnr)
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-  return bufname:match("term://.*kiro") ~= nil
+  return bufname:match("term://.*kiro") ~= nil or bufname:match("term://.*claude") ~= nil
 end
 
--- Find Kiro terminal window
-local function get_kiro_window()
+-- Find AI terminal window (Kiro or Claude)
+local function get_ai_window()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if is_kiro_terminal(vim.api.nvim_win_get_buf(win)) then
+    if is_ai_terminal(vim.api.nvim_win_get_buf(win)) then
       return win
     end
   end
@@ -29,25 +29,25 @@ local function stop_timer()
   end
 end
 
--- Open file in main pane (not Kiro terminal)
+-- Open file in main pane (not AI terminal)
 local function open_in_main_pane(filepath)
-  local kiro_win = get_kiro_window()
-  if not kiro_win then
+  local ai_win = get_ai_window()
+  if not ai_win then
     return
   end
 
   -- Save current window
   local current_win = vim.api.nvim_get_current_win()
 
-  -- Find the main editor window (not Kiro, not neo-tree)
+  -- Find the main editor window (not AI terminal, not neo-tree)
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
     local bufname = vim.api.nvim_buf_get_name(buf)
     local filetype = vim.api.nvim_buf_get_option(buf, 'filetype')
     
-    -- Skip Kiro terminal and neo-tree
-    if win ~= kiro_win and filetype ~= 'neo-tree' then
+    -- Skip AI terminal and neo-tree
+    if win ~= ai_win and filetype ~= 'neo-tree' then
       target_win = win
       break
     end
@@ -68,15 +68,17 @@ local function open_in_main_pane(filepath)
     vim.cmd("keepalt edit " .. vim.fn.fnameescape(filepath))
   end
   
-  -- Return focus to original window (likely Kiro)
-  vim.api.nvim_set_current_win(current_win)
+  -- Return focus to original window (likely AI terminal)
+  if vim.api.nvim_win_is_valid(current_win) then
+    vim.api.nvim_set_current_win(current_win)
+  end
   
-  print("Kiro modified: " .. vim.fn.fnamemodify(filepath, ":~:."))
+  print("AI modified: " .. vim.fn.fnamemodify(filepath, ":~:."))
 end
 
 -- Check for file changes in current directory
 local function check_for_changes()
-  if not get_kiro_window() then
+  if not get_ai_window() then
     stop_timer()
     return
   end

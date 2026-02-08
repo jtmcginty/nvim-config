@@ -5,6 +5,8 @@ return {
   {
     "kiro-preview",
     dir = vim.fn.stdpath("config") .. "/lua/kiro-preview",
+    lazy = false,
+    priority = 1000,
     config = function()
       require("kiro-preview").setup()
     end,

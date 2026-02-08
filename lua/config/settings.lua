@@ -29,8 +29,28 @@ local function get_kiro_window()
   return nil, nil
 end
 
+-- Helper to check if Claude terminal exists
+local function get_claude_window()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local bufname = vim.api.nvim_buf_get_name(buf)
+    if bufname:match("term://.*claude") then
+      return win, buf
+    end
+  end
+  return nil, nil
+end
+
 -- Helper to kill Kiro process in buffer
 local function kill_kiro_process(buf)
+  local chan = vim.api.nvim_buf_get_var(buf, 'terminal_job_id')
+  if chan then
+    vim.fn.jobstop(chan)
+  end
+end
+
+-- Helper to kill Claude process in buffer
+local function kill_claude_process(buf)
   local chan = vim.api.nvim_buf_get_var(buf, 'terminal_job_id')
   if chan then
     vim.fn.jobstop(chan)
@@ -56,6 +76,25 @@ vim.keymap.set('n', '<C-\\>', function()
   end
 end, { desc = 'Toggle Kiro terminal' })
 
+-- Toggle Claude terminal: open if closed, close if open
+vim.keymap.set('n', '<leader>\\', function()
+  local claude_win, claude_buf = get_claude_window()
+  
+  if claude_win then
+    -- Claude is open, kill process and close window
+    kill_claude_process(claude_buf)
+    vim.api.nvim_win_close(claude_win, false)
+    vim.api.nvim_buf_delete(claude_buf, { force = true })
+  else
+    -- Claude is closed, open it
+    vim.cmd('botright vsplit')
+    vim.cmd('vertical resize 42')
+    vim.cmd('terminal claude')
+    vim.cmd('startinsert')
+    vim.wo.winfixwidth = true
+  end
+end, { desc = 'Toggle Claude terminal' })
+
 -- Also allow closing from terminal mode with Ctrl+\
 vim.keymap.set('t', '<C-\\>', function()
   local kiro_win, kiro_buf = get_kiro_window()
@@ -79,6 +118,9 @@ vim.api.nvim_create_autocmd('BufEnter', {
     vim.cmd('startinsert')
   end,
 })
+
+-- Load kiro-preview for AI file watching
+require("kiro-preview").setup()
 
 -- Cleanup Kiro process on Neovim exit
 vim.api.nvim_create_autocmd('VimLeavePre', {
