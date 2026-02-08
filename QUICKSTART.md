@@ -360,6 +360,49 @@ To change keybindings:
 
 ---
 
+## Advanced Navigation & Learning
+
+### Flash - Labeled Jumps
+
+| Key | Action |
+|-----|--------|
+| `s` + char | Show labels on all matches, press label to jump |
+| `S` + pattern | Jump to treesitter nodes (functions, classes) |
+
+**Example:** Press `s` then `f` - all 'f' characters get labeled. Press the label to jump instantly.
+
+### Undotree - Undo History
+
+| Key | Action |
+|-----|--------|
+| `<leader>u` | Toggle undo tree visualization |
+
+**Inside Undotree:**
+- `j/k` - Navigate history
+- `Enter` - Jump to that state
+- See branches where you undid and made different changes
+
+### Database UI (Dadbod)
+
+| Key | Action |
+|-----|--------|
+| `<leader>D` | Toggle database UI |
+
+**Inside Database UI:**
+- Add connections to browse databases
+- Execute SQL queries
+- View table schemas
+
+### Hardtime - Learn Better Motions
+
+Automatically enabled. Shows hints when you:
+- Repeat the same motion too many times
+- Use inefficient navigation patterns
+
+Learn to use: `w/b/e` for word jumps, `f/t` for character search, `{/}` for paragraph jumps instead of holding `j/k`.
+
+---
+
 ## Next Steps
 
 Once comfortable with the basics:
