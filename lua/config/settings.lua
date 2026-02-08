@@ -80,6 +80,16 @@ vim.api.nvim_create_autocmd('BufEnter', {
   end,
 })
 
+-- Cleanup Kiro process on Neovim exit
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    local _, kiro_buf = get_kiro_window()
+    if kiro_buf then
+      kill_kiro_process(kiro_buf)
+    end
+  end,
+})
+
 -- Jump directly to rightmost window (Kiro terminal)
 vim.keymap.set('n', '<leader>k', '<C-w>l', { desc = 'Jump to Kiro terminal' })
 

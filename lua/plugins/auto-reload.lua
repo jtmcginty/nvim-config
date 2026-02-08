@@ -21,5 +21,15 @@ return {
         end
       end
     end))
+
+    -- Stop timer on Neovim exit
+    vim.api.nvim_create_autocmd('VimLeavePre', {
+      callback = function()
+        if timer then
+          timer:stop()
+          timer:close()
+        end
+      end,
+    })
   end,
 }

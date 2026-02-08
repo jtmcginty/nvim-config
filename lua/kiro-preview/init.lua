@@ -20,6 +20,15 @@ local function get_kiro_window()
   return nil
 end
 
+-- Stop the file watcher timer
+local function stop_timer()
+  if timer then
+    timer:stop()
+    timer:close()
+    timer = nil
+  end
+end
+
 -- Open file in main pane (not Kiro terminal)
 local function open_in_main_pane(filepath)
   local kiro_win = get_kiro_window()
@@ -68,6 +77,7 @@ end
 -- Check for file changes in current directory
 local function check_for_changes()
   if not get_kiro_window() then
+    stop_timer()
     return
   end
 
@@ -109,6 +119,11 @@ function M.setup()
   -- Poll for changes every 500ms
   timer = vim.loop.new_timer()
   timer:start(500, 500, vim.schedule_wrap(check_for_changes))
+
+  -- Stop timer on Neovim exit
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    callback = stop_timer,
+  })
 
   -- Command to list recent files
   vim.api.nvim_create_user_command("KiroPreviewList", function()
