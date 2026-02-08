@@ -77,7 +77,7 @@ vim.keymap.set('n', '<C-\\>', function()
 end, { desc = 'Toggle Kiro terminal' })
 
 -- Toggle Claude terminal: open if closed, close if open
-vim.keymap.set('n', '<leader>\\', function()
+vim.keymap.set({ 'n', 't' }, '<M-\\>', function()
   local claude_win, claude_buf = get_claude_window()
   
   if claude_win then
