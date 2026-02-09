@@ -13,7 +13,7 @@ return {
       options = {
         mode = 'buffers',
         themable = true,
-        numbers = 'none',
+        numbers = 'ordinal', -- Show buffer numbers for quick jumping
         close_command = 'bdelete! %d',
         right_mouse_command = 'bdelete! %d',
         left_mouse_command = 'buffer %d',
@@ -24,7 +24,8 @@ return {
           return buftype ~= 'terminal'
         end,
         indicator = {
-          style = 'underline',
+          style = 'icon',
+          icon = '▎',
         },
         buffer_close_icon = '󰅖',
         modified_icon = '●',
@@ -39,7 +40,7 @@ return {
         offsets = {
           {
             filetype = 'neo-tree',
-            text = 'File Explorer',
+            text = '󰙅 File Explorer',
             text_align = 'center',
             separator = true,
           },
@@ -48,8 +49,13 @@ return {
         show_buffer_close_icons = true,
         show_close_icon = false,
         show_tab_indicators = true,
-        separator_style = 'thin',
-        always_show_bufferline = false,
+        separator_style = 'slant', -- Slanted tabs look modern
+        always_show_bufferline = true,
+        hover = {
+          enabled = true,
+          delay = 200,
+          reveal = {'close'}
+        },
       },
     })
 
@@ -58,5 +64,11 @@ return {
     vim.keymap.set('n', '[b', '<cmd>BufferLineCyclePrev<CR>', { desc = 'Previous buffer' })
     vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = 'Close buffer' })
     vim.keymap.set('n', '<leader>bo', '<cmd>BufferLineCloseOthers<CR>', { desc = 'Close other buffers' })
+    
+    -- Quick jump to buffer by number
+    for i = 1, 9 do
+      vim.keymap.set('n', '<leader>' .. i, '<cmd>BufferLineGoToBuffer ' .. i .. '<CR>', 
+        { desc = 'Go to buffer ' .. i })
+    end
   end,
 }
