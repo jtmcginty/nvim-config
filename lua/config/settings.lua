@@ -148,6 +148,15 @@ vim.keymap.set('n', '<C-k>', '<C-w>k', { desc = 'Move to upper window' })
 -- Clear search highlights on <Esc>
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>', { desc = 'Clear search highlights' })
 
+-- Clear command line after executing commands to reduce anxiety
+vim.api.nvim_create_autocmd('CmdlineLeave', {
+  callback = function()
+    vim.defer_fn(function()
+      vim.cmd('echo ""')
+    end, 100)
+  end,
+})
+
 -- Auto-center screen after jumps
 vim.keymap.set('n', '<C-d>', '<C-d>zz', { desc = 'Jump down half page (centered)' })
 vim.keymap.set('n', '<C-u>', '<C-u>zz', { desc = 'Jump up half page (centered)' })
