@@ -17,7 +17,7 @@ return {
       end,
     },
     { 'nvim-telescope/telescope-ui-select.nvim' },
-    { 'nvim-tree/nvim-web-devicons' },
+    { 'echasnovski/mini.nvim' },  -- For mini.icons
   },
   config = function()
     require('telescope').setup({

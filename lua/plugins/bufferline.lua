@@ -6,7 +6,7 @@
 return {
   'akinsho/bufferline.nvim',
   version = '*',
-  dependencies = 'nvim-tree/nvim-web-devicons',
+  dependencies = { 'echasnovski/mini.nvim' },  -- For mini.icons
   event = 'VeryLazy',
   config = function()
     require('bufferline').setup({

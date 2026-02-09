@@ -1,7 +1,7 @@
 -- Lualine - statusline with LSP info
 return {
   'nvim-lualine/lualine.nvim',
-  dependencies = { 'nvim-tree/nvim-web-devicons' },
+  dependencies = { 'echasnovski/mini.nvim' },  -- For mini.icons
   opts = {
     sections = {
       lualine_a = {'mode'},

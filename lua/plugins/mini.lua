@@ -7,6 +7,12 @@ return {
   'echasnovski/mini.nvim',
   version = '*',
   config = function()
+    -- Mini.icons - Modern file and UI icons
+    require('mini.icons').setup()
+    
+    -- Make mini.icons work as a drop-in replacement for nvim-web-devicons
+    MiniIcons.mock_nvim_web_devicons()
+    
     -- Mini.statusline - Clean status bar at bottom
     -- Disabled in favor of lualine for LSP display
     -- require('mini.statusline').setup({

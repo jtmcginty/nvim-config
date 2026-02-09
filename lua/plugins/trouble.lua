@@ -6,7 +6,7 @@
 return {
   'folke/trouble.nvim',
   enabled = true,
-  dependencies = { 'nvim-tree/nvim-web-devicons' },
+  dependencies = { 'echasnovski/mini.nvim' },  -- For mini.icons
   cmd = 'Trouble',
   event = 'VeryLazy', -- Load after startup is complete
   keys = {
