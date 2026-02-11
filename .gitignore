@@ -1,0 +1,27 @@
+# Neovim
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Lazy.nvim plugin directory (plugins are auto-installed)
+lazy-lock.json
+
+# LSP and Mason
+.luarc.json
+
+# Personal/local config (if you add any)
+local.lua
+*.local.lua
+
+# Secrets
+.env
+.env.*
+*secret*
+*credential*
+*.pem
+*.key
+!*.pub
+
+# Logs
+*.log
