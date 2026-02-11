@@ -36,10 +36,10 @@ return {
     end, { desc = 'Harpoon: Go to file 4' })
 
     -- Navigate between marks
-    vim.keymap.set('n', '<C-S-P>', function()
+    vim.keymap.set('n', '<M-,>', function()
       harpoon:list():prev()
     end, { desc = 'Harpoon: Previous file' })
-    vim.keymap.set('n', '<C-S-N>', function()
+    vim.keymap.set('n', '<M-.>', function()
       harpoon:list():next()
     end, { desc = 'Harpoon: Next file' })
   end,
