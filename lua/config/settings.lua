@@ -60,7 +60,7 @@ end
 -- Toggle Kiro terminal: open if closed, close if open
 vim.keymap.set('n', '<C-\\>', function()
   local kiro_win, kiro_buf = get_kiro_window()
-  
+
   if kiro_win then
     -- Kiro is open, kill process and close window
     kill_kiro_process(kiro_buf)
@@ -79,7 +79,7 @@ end, { desc = 'Toggle Kiro terminal' })
 -- Toggle Claude terminal: open if closed, close if open
 vim.keymap.set({ 'n', 't' }, '<M-\\>', function()
   local claude_win, claude_buf = get_claude_window()
-  
+
   if claude_win then
     -- Claude is open, kill process and close window
     kill_claude_process(claude_buf)
@@ -213,3 +213,9 @@ vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.undofile = true
 vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
+
+-- Folding (for nvim-ufo)
+vim.opt.foldcolumn = '0'
+vim.opt.foldlevel = 99
+vim.opt.foldlevelstart = 99
+vim.opt.foldenable = true

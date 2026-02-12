@@ -9,7 +9,7 @@ return {
     -- Mason: Auto-install language servers
     { 'williamboman/mason.nvim', config = true },
     { 'williamboman/mason-lspconfig.nvim' },
-    
+
     -- Progress notifications
     { 'j-hui/fidget.nvim', opts = {} },
   },
@@ -50,12 +50,12 @@ return {
         map('<leader>cd', vim.diagnostic.open_float, 'Show diagnostic')
         map('[d', vim.diagnostic.goto_prev, 'Previous diagnostic')
         map(']d', vim.diagnostic.goto_next, 'Next diagnostic')
-        
+
         -- Enable inlay hints if supported
         if client and client.supports_method('textDocument/inlayHint') then
           vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
         end
-        
+
         -- Highlight symbol under cursor
         if client and client.supports_method('textDocument/documentHighlight') then
           local highlight_group = vim.api.nvim_create_augroup('lsp-highlight', { clear = false })
@@ -70,7 +70,7 @@ return {
             callback = vim.lsp.buf.clear_references,
           })
         end
-        
+
         -- Optimize LSP for performance
         local client = vim.lsp.get_client_by_id(event.data.client_id)
         if client then
@@ -111,6 +111,9 @@ return {
       rust_analyzer = {},
       ts_ls = {}, -- TypeScript/JavaScript
       gopls = {},
+      ansiblels = {
+        filetypes = { 'yaml.ansible' },
+      },
     }
 
     -- Setup Mason
