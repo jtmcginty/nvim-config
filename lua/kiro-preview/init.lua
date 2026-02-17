@@ -35,6 +35,21 @@ end
 
 -- Check if file should be ignored
 local function should_ignore(filepath)
+  -- Specific filenames
+  local filename = vim.fn.fnamemodify(filepath, ':t')
+  local ignore_files = {
+    '.coverage',
+    '.coverage.*',
+    'coverage.xml',
+    '.DS_Store',
+    'Thumbs.db',
+  }
+  for _, name in ipairs(ignore_files) do
+    if filename == name or filename:match('^' .. name:gsub('%.', '%%.'):gsub('%*', '.*') .. '$') then
+      return true
+    end
+  end
+
   -- Binary extensions
   local extensions = {
     '.pyc', '.pyo', '.so', '.dylib', '.dll', '.exe', '.bin', '.o', '.a',
@@ -47,35 +62,67 @@ local function should_ignore(filepath)
       return true
     end
   end
-  
+
   -- Cache/temp/build directories
   local ignore_patterns = {
+    -- Python
     '%.pytest_cache/',
     '__pycache__/',
-    'node_modules/',
-    '%.git/',
     '%.venv/',
     'venv/',
-    '%.cache/',
     '%.ruff_cache/',
+    'htmlcov/',
+    '%.tox/',
+    '%.egg%-info/',
+    '%.mypy_cache/',
+    '%.hypothesis/',
+    'wheels/',
+    'sdist/',
+
+    -- JavaScript/TypeScript
+    'node_modules/',
+    '%.next/',
+    '%.nuxt/',
+    '%.turbo/',
+    '%.parcel%-cache/',
+    '%.vite/',
+    '%.webpack/',
+    '%.rollup%.cache/',
+    '%.svelte%-kit/',
+    '%.nyc_output/',
+
+    -- General build
     'dist/',
     'build/',
-    'target/',  -- Rust, Java
-    '%.next/',  -- Next.js
-    '%.nuxt/',  -- Nuxt
     'out/',
-    '%.turbo/',
     'coverage/',
-    '%.nyc_output/',
     'tmp/',
     'temp/',
+    'logs/',
+
+    -- Rust
+    'target/',
+
+    -- Go
+    'vendor/',
+
+    -- Java/Kotlin
+    '%.gradle/',
+    'bin/',
+
+    -- Infrastructure
+    '%.terraform/',
+
+    -- VCS
+    '%.git/',
+    '%.cache/',
   }
   for _, pattern in ipairs(ignore_patterns) do
     if filepath:match(pattern) then
       return true
     end
   end
-  
+
   return false
 end
 
@@ -84,7 +131,7 @@ local function open_in_main_pane(filepath)
   if should_ignore(filepath) then
     return
   end
-  
+
   local ai_win = get_ai_window()
   if not ai_win then
     return
@@ -99,7 +146,7 @@ local function open_in_main_pane(filepath)
     local buf = vim.api.nvim_win_get_buf(win)
     local bufname = vim.api.nvim_buf_get_name(buf)
     local filetype = vim.api.nvim_buf_get_option(buf, 'filetype')
-    
+
     -- Skip AI terminal and neo-tree
     if win ~= ai_win and filetype ~= 'neo-tree' then
       target_win = win
@@ -121,12 +168,12 @@ local function open_in_main_pane(filepath)
     vim.api.nvim_set_current_win(target_win)
     vim.cmd("keepalt edit " .. vim.fn.fnameescape(filepath))
   end
-  
+
   -- Return focus to original window (likely AI terminal)
   if vim.api.nvim_win_is_valid(current_win) then
     vim.api.nvim_set_current_win(current_win)
   end
-  
+
   -- Reveal in Neo-tree without stealing focus
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
@@ -139,7 +186,7 @@ local function open_in_main_pane(filepath)
       break
     end
   end
-  
+
   print("AI modified: " .. vim.fn.fnamemodify(filepath, ":~:."))
 end
 
@@ -179,18 +226,18 @@ function M.setup()
       local bufname = vim.api.nvim_buf_get_name(0)
       if bufname:match("term://.*kiro") or bufname:match("term://.*claude") then
         if timer then return end  -- Already started
-        
+
         -- Use OS-level file watching (non-blocking, event-driven)
         local cwd = vim.fn.getcwd()
         local handle = vim.loop.new_fs_event()
-        
+
         handle:start(cwd, {recursive = true}, vim.schedule_wrap(function(err, filename, events)
           if err then return end
           if not get_ai_window() then
             handle:stop()
             return
           end
-          
+
           if filename then
             local filepath = cwd .. '/' .. filename
             if vim.fn.filereadable(filepath) == 1 then
@@ -199,7 +246,7 @@ function M.setup()
               if stat then
                 local mtime = stat.mtime.sec
                 local last_mtime = file_mtimes[filepath]
-                
+
                 if not last_mtime or mtime > last_mtime then
                   file_mtimes[filepath] = mtime
                   recent_files[filepath] = os.time()
@@ -209,7 +256,7 @@ function M.setup()
             end
           end
         end))
-        
+
         timer = handle  -- Store handle for cleanup
       end
     end,
