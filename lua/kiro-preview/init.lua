@@ -1,7 +1,6 @@
 local M = {}
 
 local recent_files = {}
-local file_mtimes = {}
 local file_contents = {} -- cached line contents for diffing
 local file_last_event = {} -- debounce: last event time per filepath (ms)
 local timer = nil
@@ -56,8 +55,6 @@ end
 -- ============================================================================
 
 --- Returns list of {start=N, count=N, text=string} blocks
---- Uses a simple but correct diff approach: finds matching "anchor" lines
---- to detect insertions/deletions rather than naive line-by-line comparison
 local function find_change_blocks(filepath)
   local old_lines = file_contents[filepath]
 
@@ -69,18 +66,12 @@ local function find_change_blocks(filepath)
   end
   f:close()
 
-  -- No prior cache: first time seeing this file
+  -- No cache: we have no prior state to diff against.
+  -- File will be opened and cached; next edit will diff correctly.
   if not old_lines then
-    if not file_mtimes[filepath] then
-      -- Truly new file created during this session
-      if #new_lines == 0 then return {} end
-      return { { start = 1, count = #new_lines, text = new_lines[1] or "" } }
-    end
     return {}
   end
 
-  -- Use vim's built-in diff to find changed line ranges
-  -- Compare old vs new using vim.diff (available in Neovim 0.6+)
   local old_text = table.concat(old_lines, "\n") .. "\n"
   local new_text = table.concat(new_lines, "\n") .. "\n"
 
@@ -89,7 +80,7 @@ local function find_change_blocks(filepath)
     return {}
   end
 
-  -- vim.diff with result_type="indices" returns list of {old_start, old_count, new_start, new_count}
+  -- vim.diff returns list of {old_start, old_count, new_start, new_count}
   local blocks = {}
   for _, hunk in ipairs(diff_result) do
     local new_start = hunk[3]
@@ -98,7 +89,6 @@ local function find_change_blocks(filepath)
       local text = new_lines[new_start] or ""
       table.insert(blocks, { start = new_start, count = new_count, text = text })
     elseif new_start > 0 then
-      -- Pure deletion: highlight the line where content was removed
       local text = new_lines[new_start] or ""
       table.insert(blocks, { start = new_start, count = 1, text = text })
     end
@@ -231,7 +221,7 @@ end
 
 local function should_ignore(filepath)
   local filename = vim.fn.fnamemodify(filepath, ':t')
-  local ignore_files = { '.coverage', '.DS_Store', 'Thumbs.db', 'coverage.xml' }
+  local ignore_files = { '.coverage', '.DS_Store', 'Thumbs.db', 'coverage.xml', 'Cargo.lock' }
   for _, name in ipairs(ignore_files) do
     if filename == name or filename:match('^%.coverage%.') then
       return true
@@ -248,14 +238,14 @@ local function should_ignore(filepath)
   end
 
   local ignore_patterns = {
-    '%.pytest_cache/', '__pycache__/', '%.venv/', 'venv/', '%.ruff_cache/',
-    'htmlcov/', '%.tox/', '%.egg%-info/', '%.mypy_cache/', '%.hypothesis/',
-    'wheels/', 'sdist/',
-    'node_modules/', '%.next/', '%.nuxt/', '%.turbo/', '%.parcel%-cache/',
-    '%.vite/', '%.webpack/', '%.rollup%.cache/', '%.svelte%-kit/', '%.nyc_output/',
-    'dist/', 'build/', 'out/', 'coverage/', 'tmp/', 'temp/', 'logs/',
-    'target/', 'vendor/', '%.gradle/', 'bin/',
-    '%.terraform/', '%.git/', '%.cache/',
+    '/%.pytest_cache/', '/__pycache__/', '/%.venv/', '/venv/', '/%.ruff_cache/',
+    '/htmlcov/', '/%.tox/', '/%.egg%-info/', '/%.mypy_cache/', '/%.hypothesis/',
+    '/wheels/', '/sdist/',
+    '/node_modules/', '/%.next/', '/%.nuxt/', '/%.turbo/', '/%.parcel%-cache/',
+    '/%.vite/', '/%.webpack/', '/%.rollup%.cache/', '/%.svelte%-kit/', '/%.nyc_output/',
+    '/dist/', '/build/', '/out/', '/coverage/', '/tmp/', '/temp/', '/logs/',
+    '/target/', '/vendor/', '/%.gradle/',
+    '/%.terraform/', '/%.git/', '/%.cache/',
   }
   for _, pattern in ipairs(ignore_patterns) do
     if filepath:match(pattern) then return true end
@@ -267,6 +257,75 @@ end
 -- ============================================================================
 -- Main handler: open file, jump to change, update quickfix
 -- ============================================================================
+
+-- Track which buffers we've attached to
+local attached_bufs = {}
+
+-- Handle detected changes: jump, flash, quickfix
+local function apply_changes(target_win, bufnr, filepath, blocks)
+  if #blocks == 0 then return end
+
+  local target_line = blocks[1].start
+
+  -- Jump and center
+  vim.api.nvim_win_call(target_win, function()
+    vim.cmd(tostring(target_line))
+    vim.cmd("normal! zz")
+  end)
+
+  -- Flash highlight
+  vim.api.nvim_buf_clear_namespace(bufnr, FLASH_NS, 0, -1)
+  local total = vim.api.nvim_buf_line_count(bufnr)
+  for _, block in ipairs(blocks) do
+    local start_line = block.start - 1
+    local end_line = math.min(start_line + block.count, total)
+    for i = start_line, end_line - 1 do
+      vim.api.nvim_buf_add_highlight(bufnr, FLASH_NS, "CurSearch", i, 0, -1)
+    end
+  end
+  vim.defer_fn(function()
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      vim.api.nvim_buf_clear_namespace(bufnr, FLASH_NS, 0, -1)
+    end
+  end, 300)
+
+  -- Update quickfix
+  update_quickfix(filepath, blocks)
+end
+
+-- Attach on_lines to a buffer so we detect changes when checktime reloads it
+local function ensure_attached(bufnr, filepath, target_win)
+  if attached_bufs[bufnr] then return end
+  attached_bufs[bufnr] = true
+
+  vim.api.nvim_buf_attach(bufnr, false, {
+    on_lines = function(_, buf, _, first_line, last_line, new_last_line)
+      -- Only respond to external reloads (checktime), not user typing
+      -- We set a flag before checktime and consume it here
+      if not file_contents[filepath .. ":pending_reload"] then return end
+      file_contents[filepath .. ":pending_reload"] = nil
+
+      -- Collect change blocks from this reload
+      local count = new_last_line - first_line
+      if count <= 0 and last_line == first_line then
+        -- Pure deletion
+        count = 1
+      end
+      if count <= 0 then return end
+
+      local lines = vim.api.nvim_buf_get_lines(buf, first_line, first_line + 1, false)
+      local text = (lines and lines[1]) or ""
+      local blocks = { { start = first_line + 1, count = math.max(count, 1), text = text } }
+
+      vim.schedule(function()
+        apply_changes(target_win, buf, filepath, blocks)
+      end)
+    end,
+    on_detach = function(_, buf)
+      attached_bufs[buf] = nil
+    end,
+  })
+end
 
 local function open_in_main_pane(filepath, blocks)
   if should_ignore(filepath) then return end
@@ -292,48 +351,47 @@ local function open_in_main_pane(filepath, blocks)
 
   if not target_win then return end
 
-  -- Open/reload buffer and jump
+  -- Open/reload buffer
   local bufnr = vim.fn.bufnr(filepath)
   if bufnr ~= -1 then
+    -- Buffer exists: attach listener, set reload flag, then checktime
     vim.api.nvim_win_set_buf(target_win, bufnr)
+    ensure_attached(bufnr, filepath, target_win)
+    file_contents[filepath .. ":pending_reload"] = true
     vim.api.nvim_win_call(target_win, function()
       vim.cmd("checktime")
-      if target_line then
-        vim.cmd(tostring(target_line))
-        vim.cmd("normal! zz")
-      end
     end)
+    -- If checktime found no changes (file unchanged), on_lines won't fire.
+    -- Clear the flag after a tick.
+    vim.defer_fn(function()
+      file_contents[filepath .. ":pending_reload"] = nil
+    end, 50)
+
+    -- If we had cached blocks from our own diff, apply them as fallback
+    -- (covers the case where on_lines didn't fire because buffer was already current)
+    if #blocks > 0 then
+      vim.schedule(function()
+        if not file_contents[filepath .. ":pending_reload"] then
+          apply_changes(target_win, bufnr, filepath, blocks)
+        end
+      end)
+    end
   else
+    -- New buffer: open it, attach for future changes
     vim.api.nvim_set_current_win(target_win)
     vim.cmd("keepalt edit " .. vim.fn.fnameescape(filepath))
-    if target_line then
-      vim.cmd(tostring(target_line))
-      vim.cmd("normal! zz")
+    bufnr = vim.api.nvim_get_current_buf()
+    ensure_attached(bufnr, filepath, target_win)
+
+    -- For new buffers, use our diff-based blocks if available
+    if #blocks > 0 then
+      apply_changes(target_win, bufnr, filepath, blocks)
     end
   end
 
   -- Return focus to AI terminal
   if vim.api.nvim_win_is_valid(current_win) then
     vim.api.nvim_set_current_win(current_win)
-  end
-
-  -- Flash highlight the changed blocks
-  if #blocks > 0 then
-    local flash_bufnr = vim.api.nvim_win_get_buf(target_win)
-    vim.api.nvim_buf_clear_namespace(flash_bufnr, FLASH_NS, 0, -1)
-    for _, block in ipairs(blocks) do
-      local start_line = block.start - 1 -- 0-indexed
-      local total = vim.api.nvim_buf_line_count(flash_bufnr)
-      local end_line = math.min(start_line + block.count, total)
-      for i = start_line, end_line - 1 do
-        vim.api.nvim_buf_add_highlight(flash_bufnr, FLASH_NS, "CurSearch", i, 0, -1)
-      end
-    end
-    vim.defer_fn(function()
-      if vim.api.nvim_buf_is_valid(flash_bufnr) then
-        vim.api.nvim_buf_clear_namespace(flash_bufnr, FLASH_NS, 0, -1)
-      end
-    end, 300)
   end
 
   -- Reveal in Neo-tree
@@ -370,13 +428,38 @@ function M.setup()
   local poll = vim.loop.new_timer()
   poll:start(500, 1000, vim.schedule_wrap(function()
     if timer then
-      poll:stop()
-      poll:close()
+      if poll:is_active() then poll:stop() end
+      if not poll:is_closing() then poll:close() end
       return
     end
     if not get_ai_window() then return end
 
+    -- Claim the timer slot immediately to prevent re-entry
+    timer = true
+
     local cwd = vim.fn.getcwd()
+
+    -- Cache all source files for diffing (skips ignored directories entirely)
+    local function cache_tree(dir)
+      local scan = vim.loop.fs_scandir(dir)
+      if not scan then return end
+      while true do
+        local name, ftype = vim.loop.fs_scandir_next(scan)
+        if not name then break end
+        local full = dir .. '/' .. name
+        if ftype == 'directory' then
+          if not should_ignore(full .. '/') then
+            cache_tree(full)
+          end
+        elseif ftype == 'file' then
+          if not should_ignore(full) then
+            cache_file(full)
+          end
+        end
+      end
+    end
+    cache_tree(cwd)
+
     local handle = vim.loop.new_fs_event()
 
     handle:start(cwd, {recursive = true}, vim.schedule_wrap(function(err, filename)
@@ -389,6 +472,7 @@ function M.setup()
 
       local filepath = cwd .. '/' .. filename
       if vim.fn.filereadable(filepath) ~= 1 then return end
+      if should_ignore(filepath) then return end
 
       -- Debounce: skip if same filepath handled within DEBOUNCE_MS
       local now = vim.loop.now()
@@ -396,13 +480,13 @@ function M.setup()
       if last and (now - last) < DEBOUNCE_MS then return end
       file_last_event[filepath] = now
 
-      -- Mtime check
-      local stat = vim.loop.fs_stat(filepath)
-      if stat then
-        local mtime = stat.mtime.sec
-        local last_mtime = file_mtimes[filepath]
-        if last_mtime and mtime <= last_mtime then return end
-        file_mtimes[filepath] = mtime
+      -- If we don't have a cache yet but the buffer exists in Neovim,
+      -- grab the buffer's in-memory content (pre-reload) as baseline
+      if not file_contents[filepath] then
+        local bufnr = vim.fn.bufnr(filepath)
+        if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+          file_contents[filepath] = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        end
       end
 
       -- Diff and handle
@@ -413,9 +497,34 @@ function M.setup()
     end))
 
     timer = handle
-    poll:stop()
-    poll:close()
+    if poll:is_active() then poll:stop() end
+    if not poll:is_closing() then poll:close() end
   end))
+
+  -- Cache file contents whenever Neovim reads or writes a buffer.
+  -- This ensures we always have the "before" state when an external edit arrives.
+  vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost"}, {
+    callback = function(ev)
+      local bufnr = ev.buf
+      local filepath = vim.api.nvim_buf_get_name(bufnr)
+      if filepath == "" then return end
+      if should_ignore(filepath) then return end
+      -- Cache from buffer lines (already in memory, no disk read needed)
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      file_contents[filepath] = lines
+    end,
+  })
+
+  -- Also cache all currently loaded buffers right now
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      local filepath = vim.api.nvim_buf_get_name(bufnr)
+      if filepath ~= "" and not should_ignore(filepath) then
+        local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        file_contents[filepath] = lines
+      end
+    end
+  end
 
   -- Stop watcher on exit
   vim.api.nvim_create_autocmd('VimLeavePre', {
